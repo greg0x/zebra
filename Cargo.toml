@@ -298,3 +298,15 @@ unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(tokio_unstable)', # Used by tokio-console
     'cfg(zcash_unstable, values("zfuture", "nu6.1", "nu7"))' # Used in Zebra and librustzcash
 ] }
+
+# Local patches for protocol development
+[patch.crates-io]
+orchard = { path = "../orchard" }
+zcash_primitives = { path = "../librustzcash/zcash_primitives" }
+zcash_client_backend = { path = "../librustzcash/zcash_client_backend" }
+zcash_protocol = { path = "../librustzcash/components/zcash_protocol" }
+zcash_transparent = { path = "../librustzcash/zcash_transparent" }
+zcash_address = { path = "../librustzcash/components/zcash_address" }
+zcash_encoding = { path = "../librustzcash/components/zcash_encoding" }
+equihash = { path = "../librustzcash/components/equihash" }
+f4jumble = { path = "../librustzcash/components/f4jumble" }
