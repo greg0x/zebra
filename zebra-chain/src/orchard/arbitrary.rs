@@ -31,11 +31,37 @@ impl Arbitrary for Action {
                 ephemeral_key: EphemeralPublicKey(pallas::Affine::generator()),
                 enc_ciphertext,
                 out_ciphertext,
+                // Zero tag for V4/V5 compatibility - V6 tests explicitly set non-zero tags
+                #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+                tag: [0u8; 16],
             })
             .boxed()
     }
 
     type Strategy = BoxedStrategy<Self>;
+}
+
+/// Strategy for generating Actions with random tags (V6 testing only)
+#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+pub fn action_with_tag_strategy() -> BoxedStrategy<Action> {
+    (
+        any::<note::Nullifier>(),
+        any::<SpendAuthVerificationKeyBytes>(),
+        any::<note::EncryptedNote>(),
+        any::<note::WrappedNoteKey>(),
+        array::uniform16(any::<u8>()),
+    )
+        .prop_map(|(nullifier, rk, enc_ciphertext, out_ciphertext, tag)| Action {
+            cv: ValueCommitment(pallas::Affine::identity()),
+            nullifier,
+            rk: rk.0,
+            cm_x: NoteCommitment(pallas::Affine::identity()).extract_x(),
+            ephemeral_key: EphemeralPublicKey(pallas::Affine::generator()),
+            enc_ciphertext,
+            out_ciphertext,
+            tag,
+        })
+        .boxed()
 }
 
 impl Arbitrary for note::Nullifier {

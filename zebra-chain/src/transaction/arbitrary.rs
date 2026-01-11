@@ -181,6 +181,59 @@ impl Transaction {
             .boxed()
     }
 
+    /// Generate a proptest strategy for V6 Transactions (NU7+)
+    #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+    pub fn v6_strategy(ledger_state: LedgerState) -> BoxedStrategy<Self> {
+        (
+            NetworkUpgrade::branch_id_strategy(),
+            any::<LockTime>(),
+            any::<block::Height>(),
+            any::<Amount<NonNegative>>(),
+            transparent::Input::vec_strategy(&ledger_state, MAX_ARBITRARY_ITEMS),
+            vec(any::<transparent::Output>(), 0..MAX_ARBITRARY_ITEMS),
+            option::of(any::<sapling::ShieldedData<sapling::SharedAnchor>>()),
+            option::of(any::<orchard::ShieldedData>()),
+        )
+            .prop_map(
+                move |(
+                    network_upgrade,
+                    lock_time,
+                    expiry_height,
+                    zip233_amount,
+                    inputs,
+                    outputs,
+                    sapling_shielded_data,
+                    orchard_shielded_data,
+                )| {
+                    Transaction::V6 {
+                        network_upgrade: if ledger_state.transaction_has_valid_network_upgrade() {
+                            ledger_state.network_upgrade()
+                        } else {
+                            network_upgrade
+                        },
+                        lock_time,
+                        expiry_height,
+                        zip233_amount,
+                        inputs,
+                        outputs,
+                        sapling_shielded_data: if ledger_state.height.is_min() {
+                            // The genesis block should not contain any shielded data.
+                            None
+                        } else {
+                            sapling_shielded_data
+                        },
+                        orchard_shielded_data: if ledger_state.height.is_min() {
+                            // The genesis block should not contain any shielded data.
+                            None
+                        } else {
+                            orchard_shielded_data
+                        },
+                    }
+                },
+            )
+            .boxed()
+    }
+
     /// Proptest Strategy for creating a Vector of transactions where the first
     /// transaction is always the only coinbase transaction
     pub fn vec_strategy(
@@ -765,6 +818,8 @@ impl Arbitrary for Transaction {
             Some(3) => return Self::v3_strategy(ledger_state),
             Some(4) => return Self::v4_strategy(ledger_state),
             Some(5) => return Self::v5_strategy(ledger_state),
+            #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+            Some(6) => return Self::v6_strategy(ledger_state),
             Some(_) => unreachable!("invalid transaction version in override"),
             None => {}
         }
@@ -778,12 +833,24 @@ impl Arbitrary for Transaction {
             NetworkUpgrade::Blossom | NetworkUpgrade::Heartwood | NetworkUpgrade::Canopy => {
                 Self::v4_strategy(ledger_state)
             }
-            NetworkUpgrade::Nu5
-            | NetworkUpgrade::Nu6
-            | NetworkUpgrade::Nu6_1
-            | NetworkUpgrade::Nu7 => prop_oneof![
+            NetworkUpgrade::Nu5 | NetworkUpgrade::Nu6 | NetworkUpgrade::Nu6_1 => prop_oneof![
                 Self::v4_strategy(ledger_state.clone()),
                 Self::v5_strategy(ledger_state)
+            ]
+            .boxed(),
+
+            #[cfg(not(all(zcash_unstable = "nu7", feature = "tx_v6")))]
+            NetworkUpgrade::Nu7 => prop_oneof![
+                Self::v4_strategy(ledger_state.clone()),
+                Self::v5_strategy(ledger_state)
+            ]
+            .boxed(),
+
+            #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+            NetworkUpgrade::Nu7 => prop_oneof![
+                Self::v4_strategy(ledger_state.clone()),
+                Self::v5_strategy(ledger_state.clone()),
+                Self::v6_strategy(ledger_state)
             ]
             .boxed(),
 
