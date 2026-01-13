@@ -87,7 +87,7 @@ orchard.workspace = true
 zcash_encoding.workspace = true
 zcash_history.workspace = true
 zcash_note_encryption = { workspace = true }
-zcash_primitives = { workspace = true, features = ["transparent-inputs"] }
+zcash_primitives = { workspace = true, features = ["transparent-inputs", "zip-233"] }
 sapling-crypto.workspace = true
 zcash_protocol.workspace = true
 zcash_address.workspace = true
